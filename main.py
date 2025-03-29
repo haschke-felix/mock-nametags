@@ -25,6 +25,8 @@ ALL_QUALIFICATIONS = ["TH", "AGT", "Sprechfunk", "Maschinist", "Kettensäge", "K
                       "Zugführer",
                       "Verbandsführer", "Sanitäter", "Truppmann"]
 
+IMG_PATH = "./pictures/"
+
 
 @dataclass
 class Instruction:
@@ -126,16 +128,22 @@ def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
     y_content = y_offset + (CARD_HEIGHT - VIEW_WINDOW_HEIGHT) / 2
 
     # Image (if available)
-    if True:  # TODO: Switch to image url
-        try:
-            img = ImageReader("./img.jpg")
-            c.drawImage(img, x_content, y_content, width=IMAGE_WIDTH,
-                        height=VIEW_WINDOW_HEIGHT, mask="auto", preserveAspectRatio=True)
-            c.setStrokeColor(colors.black)
-            c.line(x_content + IMAGE_WIDTH, y_content, x_content + IMAGE_WIDTH, y_content + VIEW_WINDOW_HEIGHT)
-        except:
-            c.setFillColor(colors.black)
-            c.rect(x_offset, y_offset, IMAGE_WIDTH, CARD_HEIGHT, fill=1, stroke=0)
+    img = IMG_PATH + "placeholder.png"
+    img_path_jpg = IMG_PATH + f"{person.personnel_id}.jpg"
+    img_path_jpeg = IMG_PATH + f"{person.personnel_id}.jpeg"
+    img_path_png = IMG_PATH + f"{person.personnel_id}.png"
+
+    if os.path.exists(img_path_jpg):
+        img = ImageReader(img_path_jpg)
+    elif os.path.exists(img_path_jpeg):
+        img = ImageReader(img_path_jpeg)
+    elif os.path.exists(img_path_png):
+        img = ImageReader(img_path_png)
+
+    c.drawImage(img, x_content, y_content, width=IMAGE_WIDTH,
+                height=VIEW_WINDOW_HEIGHT, mask="auto", preserveAspectRatio=True)
+    c.setStrokeColor(colors.black)
+    c.line(x_content + IMAGE_WIDTH, y_content, x_content + IMAGE_WIDTH, y_content + VIEW_WINDOW_HEIGHT)
 
     # Name
     c.setFont("Helvetica-Bold", FontSize.last_name)
@@ -175,6 +183,7 @@ def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
     for qualification, (short, value) in mapping.items():
         if person.qualifications[qualification]:
             if value >= highest_value:
+                highest_value = value
                 highest_role = (short, value)
 
     if highest_role:
@@ -205,8 +214,12 @@ def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
         path2.lineTo(rect_left_x + VIEW_WINDOW_HEIGHT, y_content)  # bottom right
         path2.lineTo(rect_left_x, y_content)  # bottom left
         path2.close()
-        c.setFillColor(colors.blue)
+        c.setFillColor(colors.darkcyan)
         c.drawPath(path2, fill=1, stroke=0)
+
+    elif person.qualifications["Klasse C"]:
+        c.setFillColor(colors.darkcyan)
+        c.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT, fill=1)
 
     elif person.qualifications["Maschinist"]:
         c.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT, fill=0)
@@ -216,7 +229,7 @@ def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
         path.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT)
         c.clipPath(path, stroke=0, fill=0)
 
-        c.setStrokeColor(colors.blue)
+        c.setStrokeColor(colors.darkcyan)
         c.setLineWidth(1)
         line_spacing = 3
 
@@ -238,10 +251,6 @@ def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
         c.setFillColor(colors.red)
         c.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT, fill=1)
 
-    elif person.qualifications["Klasse C"]:
-        c.setFillColor(colors.blue)
-        c.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT, fill=1)
-
     # other qualifications
     if person.qualifications["TH"]:
         c.drawImage("./icons/th.png",
@@ -250,8 +259,8 @@ def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
                     VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING,
                     VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING, mask="auto")
 
-    if person.qualifications["Kettensäge"]:
-        c.drawImage("./icons/chainsaw.png",
+    if person.qualifications["Sanitäter"]:
+        c.drawImage("./icons/medic.png",
                     x_content + CARD_WIDTH - VIEW_WINDOW_HEIGHT + ICON_PADDING,
                     y_content + ICON_PADDING,
                     VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING,
@@ -264,14 +273,14 @@ def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
                     VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING,
                     VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING, mask="auto")
 
-    if person.qualifications["Sanitäter"]:
-        c.drawImage("./icons/medic.png",
+    if person.qualifications["Kettensäge"]:
+        c.drawImage("./icons/chainsaw.png",
                     x_content + CARD_WIDTH - VIEW_WINDOW_HEIGHT / 2 + ICON_PADDING,
                     y_content + ICON_PADDING,
                     VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING,
                     VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING, mask="auto")
 
-    # QR Code TODO: replace with QR Code
+    # QR Code
     c.setFillColor(colors.grey)
     c.rect(box_left_x - VIEW_WINDOW_HEIGHT / 2, y_content, VIEW_WINDOW_HEIGHT / 2,
            VIEW_WINDOW_HEIGHT / 2, fill=0)
@@ -321,11 +330,10 @@ async def generate_pdf(request: PdfRequest):
 
 
 if __name__ == '__main__':
-    with open('./nameplate_examples.json', 'r') as f:
+    with open('./real_examples.json', 'r') as f:
         test_data = json.load(f)
 
     persons = [Person.from_json(p) for p in test_data]
-    print("Persons: ", persons)
     request = PdfRequest(title="Namensschilder", persons=persons)
 
     create_pdf(request, "./nameplate_examples.pdf")
