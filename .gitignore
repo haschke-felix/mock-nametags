@@ -178,3 +178,4 @@ cython_debug/
 nameplates.json
 img.jpg
 *.pdf
+/pictures/
