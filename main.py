@@ -18,12 +18,15 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase.pdfmetrics import stringWidth
 
+from PIL import Image, ImageOps
+
 app = FastAPI()
 
 ALL_QUALIFICATIONS = ["TH", "AGT", "Sprechfunk", "Maschinist", "Kettensäge", "Klasse C", "Truppführer",
                       "Gruppenführer",
                       "Zugführer",
                       "Verbandsführer", "Sanitäter", "Truppmann"]
+ALL_FUNCTIONS = ["Mannschaft", "Kraftfahrer", "Führung"]
 
 IMG_PATH = "./pictures/"
 
@@ -39,6 +42,7 @@ class Person(BaseModel):
     last_name: str
     personnel_id: str | None
     image_url: str | None
+    function: str | None
     qualifications: dict[str, bool]
     instructions: list[Instruction]
 
@@ -50,6 +54,7 @@ class Person(BaseModel):
             last_name=data["last_name"],
             personnel_id=data["personnel_id"],
             image_url=data["image_url"],
+            function=data["function"],
             qualifications=qualifications_dict,
             instructions=[Instruction(**instr) for instr in data["instructions"]],
 
@@ -65,13 +70,17 @@ class FontSize(IntEnum):
     last_name = 15
     first_name = 12
     leading_qualification = 16
+    function_text = 6
+    function_bar = 8
+    personnel_id = 8
 
 
 CARD_WIDTH = 100 * 2.834  # mm to pt
 CARD_HEIGHT = 22.45 * 2.834
 VIEW_WINDOW_HEIGHT = 19 * 2.834
 MARGIN = 5
-IMAGE_WIDTH = VIEW_WINDOW_HEIGHT * .75  # 3:4 format
+IMAGE_HEIGHT = VIEW_WINDOW_HEIGHT - int(FontSize.function_text) - 2
+IMAGE_WIDTH = IMAGE_HEIGHT * .75  # 3:4 format
 ICON_PADDING = 3
 
 
@@ -94,6 +103,21 @@ def generate_qr_code(text):
     return ImageReader(img_stream)
 
 
+def get_icon(path, invert=False):
+    img = Image.open(path).convert("RGBA")
+    if invert:
+        r, g, b, a = img.split()
+        rgb_image = Image.merge("RGB", (r, g, b))
+        inverted_rgb = ImageOps.invert(rgb_image)
+        img = Image.merge("RGBA", (inverted_rgb.split() + (a,)))
+
+    img_stream = BytesIO()
+    img.save(img_stream, format="PNG")
+    img_stream.seek(0)
+
+    return ImageReader(img_stream)
+
+
 def draw_leading_role_indicator(c, idx, short, x, y, max_width, max_height):
     c.setStrokeColor(colors.darkgrey)
     c.setFillColor(colors.lightgrey)  # set default background
@@ -101,10 +125,17 @@ def draw_leading_role_indicator(c, idx, short, x, y, max_width, max_height):
 
     beam_width = max_width / 3
 
+    roles = ["TF", "GF", "VF" if short == "VF" else "ZF"]
+
     for i in range(3, 0, -1):
-        if idx == i:
-            c.setFillColor(colors.green)
-        c.roundRect(x + i * beam_width - beam_width, y, max_width / 3, max_height, radius=5, fill=1)
+        c.setFillColor(colors.green if idx >= i else colors.lightgrey)
+        c.roundRect(x + (i - 1) * beam_width, y, max_width / 3, max_height, radius=5, fill=1)
+        c.setFillColor(colors.white if idx >= i else colors.black)
+        str_width = stringWidth(roles[i - 1], "Helvetica-Bold", FontSize.function_bar)
+        c.setFont("Helvetica-Bold", FontSize.function_bar + 2)
+        c.drawString(x + (i - 1) * beam_width + (beam_width - str_width) / 2,
+                     y + (max_height - FontSize.function_bar) / 2,
+                     roles[i - 1])
 
 
 def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
@@ -117,12 +148,6 @@ def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
         x_offset: The x-offset for the card.
         y_offset: The y-offset for the card.
     """
-
-    # Border
-    c.setStrokeColor(colors.black)
-    c.rect(x_offset, y_offset, CARD_WIDTH, CARD_HEIGHT, stroke=1, fill=0)  # outer border for upper/lower spacings
-    c.rect(x_offset, y_offset + (CARD_HEIGHT - VIEW_WINDOW_HEIGHT) / 2, CARD_WIDTH, VIEW_WINDOW_HEIGHT, stroke=1,
-           fill=0)
 
     x_content = x_offset
     y_content = y_offset + (CARD_HEIGHT - VIEW_WINDOW_HEIGHT) / 2
@@ -140,10 +165,26 @@ def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
     elif os.path.exists(img_path_png):
         img = ImageReader(img_path_png)
 
-    c.drawImage(img, x_content, y_content, width=IMAGE_WIDTH,
-                height=VIEW_WINDOW_HEIGHT, mask="auto", preserveAspectRatio=True)
+    c.drawImage(img, x_content, y_content + (VIEW_WINDOW_HEIGHT - IMAGE_HEIGHT), width=IMAGE_WIDTH,
+                height=IMAGE_HEIGHT, mask="auto", preserveAspectRatio=True)
     c.setStrokeColor(colors.black)
     c.line(x_content + IMAGE_WIDTH, y_content, x_content + IMAGE_WIDTH, y_content + VIEW_WINDOW_HEIGHT)
+
+    # Function
+    c.setFillColor(colors.black)
+    c.setFont("Helvetica", FontSize.function_text)
+    if person.function not in ALL_FUNCTIONS:
+        raise ValueError(f"Illegal function '{person.function}' for {person.first_name} {person.last_name}")
+    str_width = stringWidth(person.function, "Helvetica", FontSize.function_text)
+    c.drawString(x_content + (IMAGE_WIDTH - str_width) / 2,
+                 y_content + (VIEW_WINDOW_HEIGHT - IMAGE_HEIGHT - int(FontSize.function_text)) / 2 + 1,
+                 person.function)
+
+    # Border
+    c.setStrokeColor(colors.black)
+    c.rect(x_offset, y_offset, CARD_WIDTH, CARD_HEIGHT, stroke=1, fill=0)  # outer border for upper/lower spacings
+    c.rect(x_offset, y_offset + (CARD_HEIGHT - VIEW_WINDOW_HEIGHT) / 2, CARD_WIDTH, VIEW_WINDOW_HEIGHT, stroke=1,
+           fill=0)
 
     # Name
     c.setFont("Helvetica-Bold", FontSize.last_name)
@@ -161,7 +202,7 @@ def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
     box_margin = 2
     box_left_x = x_content + CARD_WIDTH - VIEW_WINDOW_HEIGHT - longest_name - 2 * box_margin
     for i in person.instructions:
-        c.setFillColor(colors.cyan)
+        c.setFillColor(colors.yellow)
         c.rect(box_left_x, y_current - rect_height,
                longest_name + 2 * box_margin, rect_height, fill=i.value)
         y_current -= rect_height
@@ -171,11 +212,12 @@ def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
                      i.vehicle)
 
     # Leading Qualifications and TOJ
-    mapping = {"Verbandsführer": ("VF", 3),
-               "Zugführer": ("ZF", 3),
-               "Gruppenführer": ("GF", 2),
-               "Truppführer": ("TF", 1),
-               "Truppmann": ("TM", 0)}
+    mapping = {
+        "Zugführer": ("ZF", 3),
+        "Verbandsführer": ("VF", 3),
+        "Gruppenführer": ("GF", 2),
+        "Truppführer": ("TF", 1),
+        "Truppmann": ("TM", 0)}
 
     highest_role = None
     highest_value = 0
@@ -198,9 +240,8 @@ def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
     # AGT or Maschinist
     rect_left_x = x_content + CARD_WIDTH - VIEW_WINDOW_HEIGHT
     c.setStrokeColor(colors.black)
+    box_colored = True
     if person.qualifications["AGT"] and person.qualifications["Klasse C"]:
-        c.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT, fill=0)
-
         path1 = c.beginPath()
         path1.moveTo(rect_left_x, y_content + VIEW_WINDOW_HEIGHT)  # top left
         path1.lineTo(rect_left_x + VIEW_WINDOW_HEIGHT, y_content + VIEW_WINDOW_HEIGHT)  # top right
@@ -214,22 +255,26 @@ def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
         path2.lineTo(rect_left_x + VIEW_WINDOW_HEIGHT, y_content)  # bottom right
         path2.lineTo(rect_left_x, y_content)  # bottom left
         path2.close()
-        c.setFillColor(colors.darkcyan)
+        c.setFillColor(colors.dodgerblue)
         c.drawPath(path2, fill=1, stroke=0)
 
+        c.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT, fill=0)
+
     elif person.qualifications["Klasse C"]:
-        c.setFillColor(colors.darkcyan)
+        c.setFillColor(colors.dodgerblue)
         c.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT, fill=1)
 
     elif person.qualifications["Maschinist"]:
-        c.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT, fill=0)
+        c.setFillColor(colors.black)
+        c.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT, fill=1)
+
         # clipping region
         c.saveState()
         path = c.beginPath()
         path.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT)
         c.clipPath(path, stroke=0, fill=0)
 
-        c.setStrokeColor(colors.darkcyan)
+        c.setStrokeColor(colors.dodgerblue)
         c.setLineWidth(1)
         line_spacing = 3
 
@@ -247,40 +292,48 @@ def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
             c.setFillColor(colors.red)
             c.drawPath(path1, fill=1, stroke=0)
 
+        c.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT, fill=0)
+
     elif person.qualifications["AGT"]:
         c.setFillColor(colors.red)
         c.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT, fill=1)
 
+    else:
+        box_colored = False
+
     # other qualifications
     if person.qualifications["TH"]:
-        c.drawImage("./icons/th.png",
+        c.drawImage(get_icon("./icons/th.png", box_colored),
                     x_content + CARD_WIDTH - VIEW_WINDOW_HEIGHT + ICON_PADDING,
                     y_content + VIEW_WINDOW_HEIGHT / 2 + ICON_PADDING,
                     VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING,
                     VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING, mask="auto")
 
     if person.qualifications["Sanitäter"]:
-        c.drawImage("./icons/medic.png",
+        c.drawImage(get_icon("./icons/medic.png", box_colored),
                     x_content + CARD_WIDTH - VIEW_WINDOW_HEIGHT + ICON_PADDING,
                     y_content + ICON_PADDING,
                     VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING,
                     VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING, mask="auto")
 
     if person.qualifications["Sprechfunk"]:
-        c.drawImage("./icons/radio.png",
+        c.drawImage(get_icon("./icons/radio.png", box_colored),
                     x_content + CARD_WIDTH - VIEW_WINDOW_HEIGHT / 2 + ICON_PADDING,
                     y_content + VIEW_WINDOW_HEIGHT / 2 + ICON_PADDING,
                     VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING,
                     VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING, mask="auto")
 
     if person.qualifications["Kettensäge"]:
-        c.drawImage("./icons/chainsaw.png",
+        c.drawImage(get_icon("./icons/chainsaw.png", box_colored),
                     x_content + CARD_WIDTH - VIEW_WINDOW_HEIGHT / 2 + ICON_PADDING,
                     y_content + ICON_PADDING,
                     VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING,
                     VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING, mask="auto")
 
-    # QR Code
+    # QR Code with ID above
+    if not person.personnel_id:
+        return
+
     c.setFillColor(colors.grey)
     c.rect(box_left_x - VIEW_WINDOW_HEIGHT / 2, y_content, VIEW_WINDOW_HEIGHT / 2,
            VIEW_WINDOW_HEIGHT / 2, fill=0)
@@ -289,6 +342,12 @@ def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
                 y_content,
                 VIEW_WINDOW_HEIGHT / 2,
                 VIEW_WINDOW_HEIGHT / 2)
+    c.setFillColor(colors.black)
+    str_width = stringWidth(person.personnel_id, "Helvetica-Bold", FontSize.personnel_id)
+    c.setFont("Helvetica-Bold", FontSize.personnel_id)
+    c.drawString(box_left_x - VIEW_WINDOW_HEIGHT / 2 + (VIEW_WINDOW_HEIGHT / 2 - str_width) / 2,
+                 y_content + VIEW_WINDOW_HEIGHT / 2 + 3,
+                 person.personnel_id)
 
 
 PAGE_WIDTH, PAGE_HEIGHT = landscape(A4)
@@ -314,7 +373,7 @@ def create_pdf(data: PdfRequest, filename: str):
         draw_single_card(c, person, x_offset, y_offset)
 
         # Move for next plate
-        x_offset += CARD_WIDTH + GRID_MARGIN_X
+        x_offset += CARD_WIDTH
         if x_offset + CARD_WIDTH > PAGE_WIDTH - EDGE_MARGIN:
             x_offset = EDGE_MARGIN
             y_offset -= CARD_HEIGHT + GRID_MARGIN_Y  # next line
