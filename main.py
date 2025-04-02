@@ -193,7 +193,8 @@ def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
                  person.last_name)
     c.setFont("Helvetica", FontSize.first_name)
     c.drawString(x_content + IMAGE_WIDTH + MARGIN,
-                 y_content + VIEW_WINDOW_HEIGHT - MARGIN - FontSize.last_name - FontSize.first_name, person.first_name)
+                 y_content + VIEW_WINDOW_HEIGHT - MARGIN - int(FontSize.last_name) - int(FontSize.first_name),
+                 person.first_name)
 
     # Vehicle Qualifications
     y_current = y_content + VIEW_WINDOW_HEIGHT
@@ -202,7 +203,7 @@ def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
     box_margin = 2
     box_left_x = x_content + CARD_WIDTH - VIEW_WINDOW_HEIGHT - longest_name - 2 * box_margin
     for i in person.instructions:
-        c.setFillColor(colors.yellow)
+        c.setFillColor(colors.deepskyblue)
         c.rect(box_left_x, y_current - rect_height,
                longest_name + 2 * box_margin, rect_height, fill=i.value)
         y_current -= rect_height
@@ -240,93 +241,81 @@ def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
     # AGT or Maschinist
     rect_left_x = x_content + CARD_WIDTH - VIEW_WINDOW_HEIGHT
     c.setStrokeColor(colors.black)
-    box_colored = True
+    icon_fields_colored = (False, False)  # (th, chainsaw)
+
+    # paths for diagonal fields
+    driver = c.beginPath()
+    driver.moveTo(rect_left_x, y_content + VIEW_WINDOW_HEIGHT)  # top left
+    driver.lineTo(rect_left_x + VIEW_WINDOW_HEIGHT, y_content + VIEW_WINDOW_HEIGHT)  # top right
+    driver.lineTo(rect_left_x, y_content)  # bottom left
+    driver.close()
+
+    maschi = c.beginPath()
+    maschi.moveTo(rect_left_x + 3, y_content + VIEW_WINDOW_HEIGHT - 3)  # top left
+    maschi.lineTo(rect_left_x + VIEW_WINDOW_HEIGHT - 7, y_content + VIEW_WINDOW_HEIGHT - 3)  # top right
+    maschi.lineTo(rect_left_x + 3, y_content + 7)  # bottom left
+    maschi.close()
+
+    agt = c.beginPath()
+    agt.moveTo(rect_left_x + VIEW_WINDOW_HEIGHT, y_content + VIEW_WINDOW_HEIGHT)  # top right
+    agt.lineTo(rect_left_x + VIEW_WINDOW_HEIGHT, y_content)  # bottom right
+    agt.lineTo(rect_left_x, y_content)  # bottom left
+    agt.close()
+
     if person.qualifications["AGT"] and person.qualifications["Klasse C"]:
-        path1 = c.beginPath()
-        path1.moveTo(rect_left_x, y_content + VIEW_WINDOW_HEIGHT)  # top left
-        path1.lineTo(rect_left_x + VIEW_WINDOW_HEIGHT, y_content + VIEW_WINDOW_HEIGHT)  # top right
-        path1.lineTo(rect_left_x, y_content)  # bottom left
-        path1.close()
-        c.setFillColor(colors.red)
-        c.drawPath(path1, fill=1, stroke=0)
-
-        path2 = c.beginPath()
-        path2.moveTo(rect_left_x + VIEW_WINDOW_HEIGHT, y_content + VIEW_WINDOW_HEIGHT)  # top right
-        path2.lineTo(rect_left_x + VIEW_WINDOW_HEIGHT, y_content)  # bottom right
-        path2.lineTo(rect_left_x, y_content)  # bottom left
-        path2.close()
+        icon_fields_colored = (True, True)
         c.setFillColor(colors.dodgerblue)
-        c.drawPath(path2, fill=1, stroke=0)
+        c.drawPath(driver, fill=1, stroke=0)
 
-        c.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT, fill=0)
+        c.setFillColor(colors.red)
+        c.drawPath(agt, fill=1, stroke=0)
+
+    elif person.qualifications["AGT"] and person.qualifications["Maschinist"]:
+        icon_fields_colored = (False, True)
+        c.setLineWidth(6)
+        c.setStrokeColor(colors.dodgerblue)
+        c.drawPath(maschi, fill=0, stroke=1)
+
+        c.setFillColor(colors.red)
+        c.drawPath(agt, fill=1, stroke=0)
 
     elif person.qualifications["Klasse C"]:
+        icon_fields_colored = (True, True)
         c.setFillColor(colors.dodgerblue)
         c.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT, fill=1)
 
     elif person.qualifications["Maschinist"]:
-        c.setFillColor(colors.black)
-        c.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT, fill=1)
-
-        # clipping region
-        c.saveState()
-        path = c.beginPath()
-        path.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT)
-        c.clipPath(path, stroke=0, fill=0)
-
+        icon_fields_colored = (False, False)
+        c.setLineWidth(6)
         c.setStrokeColor(colors.dodgerblue)
-        c.setLineWidth(1)
-        line_spacing = 3
-
-        for i in range(-int(VIEW_WINDOW_HEIGHT), int(VIEW_WINDOW_HEIGHT), line_spacing):
-            c.line(rect_left_x + i, y_content, rect_left_x + i + VIEW_WINDOW_HEIGHT, y_content + VIEW_WINDOW_HEIGHT)
-
-        c.restoreState()
-
-        if person.qualifications["AGT"]:
-            path1 = c.beginPath()
-            path1.moveTo(rect_left_x, y_content + VIEW_WINDOW_HEIGHT)  # top left
-            path1.lineTo(rect_left_x + VIEW_WINDOW_HEIGHT, y_content + VIEW_WINDOW_HEIGHT)  # top right
-            path1.lineTo(rect_left_x, y_content)  # bottom left
-            path1.close()
-            c.setFillColor(colors.red)
-            c.drawPath(path1, fill=1, stroke=0)
-
-        c.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT, fill=0)
+        c.rect(rect_left_x + 3, y_content + 3, VIEW_WINDOW_HEIGHT - 6, VIEW_WINDOW_HEIGHT - 6, fill=0, stroke=1)
 
     elif person.qualifications["AGT"]:
+        icon_fields_colored = (True, True)
         c.setFillColor(colors.red)
         c.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT, fill=1)
 
     else:
+        # non of the above qualifications -> modify icon color
         box_colored = False
+
+    # reset line width and color, add border
+    c.setLineWidth(1)
+    c.setStrokeColor(colors.black)
+    c.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT, fill=0)
 
     # other qualifications
     if person.qualifications["TH"]:
-        c.drawImage(get_icon("./icons/th.png", box_colored),
-                    x_content + CARD_WIDTH - VIEW_WINDOW_HEIGHT + ICON_PADDING,
-                    y_content + VIEW_WINDOW_HEIGHT / 2 + ICON_PADDING,
-                    VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING,
-                    VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING, mask="auto")
-
-    if person.qualifications["Sanitäter"]:
-        c.drawImage(get_icon("./icons/medic.png", box_colored),
-                    x_content + CARD_WIDTH - VIEW_WINDOW_HEIGHT + ICON_PADDING,
-                    y_content + ICON_PADDING,
-                    VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING,
-                    VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING, mask="auto")
-
-    if person.qualifications["Sprechfunk"]:
-        c.drawImage(get_icon("./icons/radio.png", box_colored),
-                    x_content + CARD_WIDTH - VIEW_WINDOW_HEIGHT / 2 + ICON_PADDING,
-                    y_content + VIEW_WINDOW_HEIGHT / 2 + ICON_PADDING,
+        c.drawImage(get_icon("./icons/th.png", icon_fields_colored[0]),
+                    x_content + CARD_WIDTH - VIEW_WINDOW_HEIGHT + ICON_PADDING + 3,
+                    y_content + VIEW_WINDOW_HEIGHT / 2 + ICON_PADDING - 3,
                     VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING,
                     VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING, mask="auto")
 
     if person.qualifications["Kettensäge"]:
-        c.drawImage(get_icon("./icons/chainsaw.png", box_colored),
-                    x_content + CARD_WIDTH - VIEW_WINDOW_HEIGHT / 2 + ICON_PADDING,
-                    y_content + ICON_PADDING,
+        c.drawImage(get_icon("./icons/chainsaw.png", icon_fields_colored[1]),
+                    x_content + CARD_WIDTH - VIEW_WINDOW_HEIGHT / 2 + ICON_PADDING - 3,
+                    y_content + ICON_PADDING + 3,
                     VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING,
                     VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING, mask="auto")
 
@@ -335,18 +324,18 @@ def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
         return
 
     c.setFillColor(colors.grey)
-    c.rect(box_left_x - VIEW_WINDOW_HEIGHT / 2, y_content, VIEW_WINDOW_HEIGHT / 2,
+    c.rect(box_left_x - VIEW_WINDOW_HEIGHT / 2, y_content + VIEW_WINDOW_HEIGHT / 6, VIEW_WINDOW_HEIGHT / 2,
            VIEW_WINDOW_HEIGHT / 2, fill=0)
     c.drawImage(generate_qr_code(person.personnel_id),
                 box_left_x - VIEW_WINDOW_HEIGHT / 2,
-                y_content,
+                y_content + VIEW_WINDOW_HEIGHT / 6,
                 VIEW_WINDOW_HEIGHT / 2,
                 VIEW_WINDOW_HEIGHT / 2)
     c.setFillColor(colors.black)
     str_width = stringWidth(person.personnel_id, "Helvetica-Bold", FontSize.personnel_id)
     c.setFont("Helvetica-Bold", FontSize.personnel_id)
     c.drawString(box_left_x - VIEW_WINDOW_HEIGHT / 2 + (VIEW_WINDOW_HEIGHT / 2 - str_width) / 2,
-                 y_content + VIEW_WINDOW_HEIGHT / 2 + 3,
+                 y_content + 1.5,
                  person.personnel_id)
 
 
