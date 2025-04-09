@@ -1,4 +1,5 @@
 import json
+import math
 import uuid
 import os
 
@@ -27,6 +28,8 @@ ALL_QUALIFICATIONS = ["TH", "AGT", "Sprechfunk", "Maschinist", "Kettensäge", "K
                       "Zugführer",
                       "Verbandsführer", "Sanitäter", "Truppmann"]
 ALL_FUNCTIONS = ["Mannschaft", "Kraftfahrer", "Führung"]
+QUALIFICATION_COLORS = {"TH": colors.yellow, "AGT": colors.red, "Maschinist": colors.dodgerblue,
+                        "Kettensäge": colors.green}
 
 IMG_PATH = "./pictures/"
 
@@ -118,24 +121,102 @@ def get_icon(path, invert=False):
     return ImageReader(img_stream)
 
 
+def draw_rotated_image(c: canvas, image, x, y, angle, side_length):
+    c.saveState()
+    c.translate(x, y)
+    c.rotate(angle)
+    c.drawImage(image, 0, 0, width=side_length, height=side_length)
+    c.restoreState()
+
+
 def draw_leading_role_indicator(c, idx, short, x, y, max_width, max_height):
     c.setStrokeColor(colors.darkgrey)
     c.setFillColor(colors.lightgrey)  # set default background
     c.setLineWidth(1)
 
-    beam_width = max_width / 3
+    beam_width = max_width / 4
 
-    roles = ["TF", "GF", "VF" if short == "VF" else "ZF"]
+    # roles = ["TF", "GF", "VF" if short == "VF" else "ZF"]
+    roles = ["TF", "GF", "ZF", "VF"]
 
-    for i in range(3, 0, -1):
+    for i in range(4, 0, -1):
         c.setFillColor(colors.green if idx >= i else colors.lightgrey)
-        c.roundRect(x + (i - 1) * beam_width, y, max_width / 3, max_height, radius=5, fill=1)
+        c.roundRect(x + (i - 1) * beam_width, y, beam_width, max_height, radius=5, fill=1)
         c.setFillColor(colors.white if idx >= i else colors.black)
         str_width = stringWidth(roles[i - 1], "Helvetica-Bold", FontSize.function_bar)
         c.setFont("Helvetica-Bold", FontSize.function_bar + 2)
         c.drawString(x + (i - 1) * beam_width + (beam_width - str_width) / 2,
                      y + (max_height - FontSize.function_bar) / 2,
                      roles[i - 1])
+
+
+def draw_qualifications(c: canvas, person: Person, left: float, bottom: float, side_length: float,
+                        padding=8):
+    right = left + side_length
+    top = bottom + side_length
+
+    top_left = c.beginPath()
+    top_left.moveTo(left, top)
+    top_left.lineTo(left + side_length / 2, top)
+    top_left.lineTo(left + side_length / 2, top - padding)
+    top_left.lineTo(left + padding, top - side_length / 2)
+    top_left.lineTo(left, top - side_length / 2)
+    top_left.close()
+
+    top_right = c.beginPath()
+    top_right.moveTo(right, top)
+    top_right.lineTo(right - side_length / 2, top)
+    top_right.lineTo(right - side_length / 2, top - padding)
+    top_right.lineTo(right - padding, top - side_length / 2)
+    top_right.lineTo(right, top - side_length / 2)
+    top_right.close()
+
+    bottom_left = c.beginPath()
+    bottom_left.moveTo(left, bottom)
+    bottom_left.lineTo(left + side_length / 2, bottom)
+    bottom_left.lineTo(left + side_length / 2, bottom + padding)
+    bottom_left.lineTo(left + padding, bottom + side_length / 2)
+    bottom_left.lineTo(left, bottom + side_length / 2)
+    bottom_left.close()
+
+    bottom_right = c.beginPath()
+    bottom_right.moveTo(right, bottom)
+    bottom_right.lineTo(right - side_length / 2, bottom)
+    bottom_right.lineTo(right - side_length / 2, bottom + padding)
+    bottom_right.lineTo(right - padding, bottom + side_length / 2)
+    bottom_right.lineTo(right, bottom + side_length / 2)
+    bottom_right.close()
+
+    order = {"TH": top_left, "Maschinist": top_right, "Kettensäge": bottom_left, "AGT": bottom_right}
+
+    for key in order.keys():
+        if not person.qualifications[key]:
+            continue
+
+        color, field = QUALIFICATION_COLORS[key], order[key]
+        c.setFillColor(color)
+        c.setStrokeColor(colors.black)
+        c.drawPath(field, fill=1, stroke=1)
+
+    if person.personnel_id:
+        border_width = 2
+        qr_side_length = math.sqrt(2 * (side_length / 2 - padding - border_width) ** 2)
+        draw_rotated_image(c, generate_qr_code(person.personnel_id), left + padding + border_width,
+                           bottom + side_length / 2,
+                           315, qr_side_length)
+        border = c.beginPath()
+        border.moveTo(left + padding, bottom + side_length / 2)
+        border.lineTo(left + side_length / 2, top - padding)
+        border.lineTo(right - padding, bottom + side_length / 2)
+        border.lineTo(left + side_length / 2, bottom + padding)
+        border.close()
+
+        c.setLineWidth(border_width)
+        c.drawPath(border, fill=0, stroke=1)
+
+    # reset params
+    c.setFillColor(colors.white)
+    c.setLineWidth(1)
 
 
 def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
@@ -214,8 +295,8 @@ def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
 
     # Leading Qualifications and TOJ
     mapping = {
+        "Verbandsführer": ("VF", 4),
         "Zugführer": ("ZF", 3),
-        "Verbandsführer": ("VF", 3),
         "Gruppenführer": ("GF", 2),
         "Truppführer": ("TF", 1),
         "Truppmann": ("TM", 0)}
@@ -229,113 +310,28 @@ def draw_single_card(c, person: Person, x_offset: float, y_offset: float):
                 highest_value = value
                 highest_role = (short, value)
 
+    role_indicator_height = 12
     if highest_role:
         short, idx = highest_role
         draw_leading_role_indicator(c, idx, short, x_content + IMAGE_WIDTH + MARGIN, y_content + MARGIN,
-                                    box_left_x - x_content - IMAGE_WIDTH - VIEW_WINDOW_HEIGHT / 2 - 2 * MARGIN, 12)
+                                    box_left_x - x_content - IMAGE_WIDTH - 2 * MARGIN, role_indicator_height)
     else:
         c.setFont("Helvetica-Bold", FontSize.first_name)
         c.setFillColor(colors.coral)
         c.drawString(x_content + IMAGE_WIDTH + MARGIN, y_content + MARGIN, "Anwärter")
 
-    # AGT or Maschinist
-    rect_left_x = x_content + CARD_WIDTH - VIEW_WINDOW_HEIGHT
-    c.setStrokeColor(colors.black)
-    icon_fields_colored = (False, False)  # (th, chainsaw)
-
-    # paths for diagonal fields
-    driver = c.beginPath()
-    driver.moveTo(rect_left_x, y_content + VIEW_WINDOW_HEIGHT)  # top left
-    driver.lineTo(rect_left_x + VIEW_WINDOW_HEIGHT, y_content + VIEW_WINDOW_HEIGHT)  # top right
-    driver.lineTo(rect_left_x, y_content)  # bottom left
-    driver.close()
-
-    maschi = c.beginPath()
-    maschi.moveTo(rect_left_x + 3, y_content + VIEW_WINDOW_HEIGHT - 3)  # top left
-    maschi.lineTo(rect_left_x + VIEW_WINDOW_HEIGHT - 7, y_content + VIEW_WINDOW_HEIGHT - 3)  # top right
-    maschi.lineTo(rect_left_x + 3, y_content + 7)  # bottom left
-    maschi.close()
-
-    agt = c.beginPath()
-    agt.moveTo(rect_left_x + VIEW_WINDOW_HEIGHT, y_content + VIEW_WINDOW_HEIGHT)  # top right
-    agt.lineTo(rect_left_x + VIEW_WINDOW_HEIGHT, y_content)  # bottom right
-    agt.lineTo(rect_left_x, y_content)  # bottom left
-    agt.close()
-
-    if person.qualifications["AGT"] and person.qualifications["Klasse C"]:
-        icon_fields_colored = (True, True)
-        c.setFillColor(colors.dodgerblue)
-        c.drawPath(driver, fill=1, stroke=0)
-
-        c.setFillColor(colors.red)
-        c.drawPath(agt, fill=1, stroke=0)
-
-    elif person.qualifications["AGT"] and person.qualifications["Maschinist"]:
-        icon_fields_colored = (False, True)
-        c.setLineWidth(6)
-        c.setStrokeColor(colors.dodgerblue)
-        c.drawPath(maschi, fill=0, stroke=1)
-
-        c.setFillColor(colors.red)
-        c.drawPath(agt, fill=1, stroke=0)
-
-    elif person.qualifications["Klasse C"]:
-        icon_fields_colored = (True, True)
-        c.setFillColor(colors.dodgerblue)
-        c.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT, fill=1)
-
-    elif person.qualifications["Maschinist"]:
-        icon_fields_colored = (False, False)
-        c.setLineWidth(6)
-        c.setStrokeColor(colors.dodgerblue)
-        c.rect(rect_left_x + 3, y_content + 3, VIEW_WINDOW_HEIGHT - 6, VIEW_WINDOW_HEIGHT - 6, fill=0, stroke=1)
-
-    elif person.qualifications["AGT"]:
-        icon_fields_colored = (True, True)
-        c.setFillColor(colors.red)
-        c.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT, fill=1)
-
-    else:
-        # non of the above qualifications -> modify icon color
-        box_colored = False
-
-    # reset line width and color, add border
-    c.setLineWidth(1)
-    c.setStrokeColor(colors.black)
-    c.rect(rect_left_x, y_content, VIEW_WINDOW_HEIGHT, VIEW_WINDOW_HEIGHT, fill=0)
-
-    # other qualifications
-    if person.qualifications["TH"]:
-        c.drawImage(get_icon("./icons/th.png", icon_fields_colored[0]),
-                    x_content + CARD_WIDTH - VIEW_WINDOW_HEIGHT + ICON_PADDING + 3,
-                    y_content + VIEW_WINDOW_HEIGHT / 2 + ICON_PADDING - 3,
-                    VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING,
-                    VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING, mask="auto")
-
-    if person.qualifications["Kettensäge"]:
-        c.drawImage(get_icon("./icons/chainsaw.png", icon_fields_colored[1]),
-                    x_content + CARD_WIDTH - VIEW_WINDOW_HEIGHT / 2 + ICON_PADDING - 3,
-                    y_content + ICON_PADDING + 3,
-                    VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING,
-                    VIEW_WINDOW_HEIGHT / 2 - 2 * ICON_PADDING, mask="auto")
+    # Qualifications
+    draw_qualifications(c, person, x_content + CARD_WIDTH - VIEW_WINDOW_HEIGHT, y_content, VIEW_WINDOW_HEIGHT)
 
     # QR Code with ID above
     if not person.personnel_id:
         return
 
-    c.setFillColor(colors.grey)
-    c.rect(box_left_x - VIEW_WINDOW_HEIGHT / 2, y_content + VIEW_WINDOW_HEIGHT / 6, VIEW_WINDOW_HEIGHT / 2,
-           VIEW_WINDOW_HEIGHT / 2, fill=0)
-    c.drawImage(generate_qr_code(person.personnel_id),
-                box_left_x - VIEW_WINDOW_HEIGHT / 2,
-                y_content + VIEW_WINDOW_HEIGHT / 6,
-                VIEW_WINDOW_HEIGHT / 2,
-                VIEW_WINDOW_HEIGHT / 2)
     c.setFillColor(colors.black)
     str_width = stringWidth(person.personnel_id, "Helvetica-Bold", FontSize.personnel_id)
     c.setFont("Helvetica-Bold", FontSize.personnel_id)
     c.drawString(box_left_x - VIEW_WINDOW_HEIGHT / 2 + (VIEW_WINDOW_HEIGHT / 2 - str_width) / 2,
-                 y_content + 1.5,
+                 y_content + 2 * MARGIN + role_indicator_height,
                  person.personnel_id)
 
 
