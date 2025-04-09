@@ -151,7 +151,7 @@ def draw_leading_role_indicator(c, idx, short, x, y, max_width, max_height):
 
 
 def draw_qualifications(c: canvas, person: Person, left: float, bottom: float, side_length: float,
-                        padding=8):
+                        padding=5):
     right = left + side_length
     top = bottom + side_length
 
@@ -199,9 +199,10 @@ def draw_qualifications(c: canvas, person: Person, left: float, bottom: float, s
         c.drawPath(field, fill=1, stroke=1)
 
     if person.personnel_id:
-        border_width = 2
-        qr_side_length = math.sqrt(2 * (side_length / 2 - padding - border_width) ** 2)
-        draw_rotated_image(c, generate_qr_code(person.personnel_id), left + padding + border_width,
+        border_width = 1
+        qr_side_length = math.sqrt(2 * (side_length / 2 - padding - 3 * border_width) ** 2)
+        draw_rotated_image(c, generate_qr_code(f"app.fw-innenstadt.de/personnel/56{person.personnel_id}"),
+                           left + padding + 3 * border_width,
                            bottom + side_length / 2,
                            315, qr_side_length)
         border = c.beginPath()
