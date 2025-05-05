@@ -175,7 +175,8 @@ cython_debug/
 .json
 .jpg
 
-nameplates.json
+example_datasets/nameplates.json
 img.jpg
 *.pdf
 /pictures/
+/example_datasets/
