@@ -6,3 +6,4 @@ fastapi~=0.115.5
 pillow~=11.0.0
 mangum
 uvicorn
+pdf2image

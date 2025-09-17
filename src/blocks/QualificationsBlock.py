@@ -31,7 +31,7 @@ class QualificationsBlock(Block):
                "AGT": (Positions.BOTTOM_RIGHT, colors.red, "agt.png")}
 
     icon_dir = os.path.join(os.path.dirname(__file__), "..", "..", "icons")
-    qr_base_url = "of56.vercel.app/personnel/"
+    qr_base_url = "personnel/"
 
     def __post_init__(self):
         if self.dimensions.width != self.dimensions.height:
