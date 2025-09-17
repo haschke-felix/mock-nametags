@@ -1,9 +1,6 @@
-import json
-import uuid
 from typing import Literal
 
-from fastapi import FastAPI, Query
-from fastapi.responses import FileResponse
+
 from pydantic import BaseModel
 from reportlab.lib.pagesizes import landscape, A4
 from reportlab.pdfgen import canvas
@@ -12,13 +9,6 @@ from src.FormatClasses import Person
 from src.card.Card import Card
 
 
-class PdfRequest(BaseModel):
-    title: str
-    persons: list[Person]
-
-
-app = FastAPI()
-
 PAGE_WIDTH, PAGE_HEIGHT = landscape(A4)
 EDGE_MARGIN = 15
 GRID_MARGIN_X = 10
@@ -26,6 +16,10 @@ GRID_MARGIN_Y = 0
 CARD_WIDTH = 100  # mm
 CARD_HEIGHT = 22.45  # mm
 TOP_BOTTOM_PADDING = 1.725  # mm
+
+class PdfRequest(BaseModel):
+    title: str
+    persons: list[Person]
 
 
 def create_pdf(data: PdfRequest, paper_size: Literal["A4", "Label"], filename=str):
@@ -59,22 +53,3 @@ def create_pdf(data: PdfRequest, paper_size: Literal["A4", "Label"], filename=st
         c.save()
     return pdf_path
 
-
-@app.post("/generate-pdf/")
-async def generate_pdf(
-        data: PdfRequest,
-        paper_size: Literal["A4", "Label"] = Query("Label")
-):
-    filename = f"{uuid.uuid4()}.pdf"
-    pdf_path = create_pdf(data, filename, paper_size)
-    return FileResponse(pdf_path, media_type="application/pdf", filename=filename)
-
-
-if __name__ == '__main__':
-    with open("example_datasets/nameplates.json", "r") as f:
-        test_data = json.load(f)
-
-    persons = [Person.from_json(p) for p in test_data]
-    request = PdfRequest(title="Namensschilder", persons=persons)
-
-    create_pdf(request, "Label", "example_datasets/nameplate_examples.pdf")
