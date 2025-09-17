@@ -10,6 +10,10 @@ from typing import Literal
 from mangum import Mangum  # adapter for serverless
 
 from src.create_pdf import create_pdf, PdfRequest
+import logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+logger.debug("Handler initialized")
 
 app = FastAPI()
 
