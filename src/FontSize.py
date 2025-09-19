@@ -7,4 +7,4 @@ class FontSize(IntEnum):
     leading_qualification = 16
     function_label = 6
     leading_qualification_bar = 8
-    personnel_id = 8
+    personnel_nr = 8

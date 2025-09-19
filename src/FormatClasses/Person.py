@@ -11,7 +11,7 @@ class Instruction(BaseModel):
 class Person(BaseModel):
     first_name: str
     last_name: str
-    personnel_id: str | None
+    personnel_nr: str | None
     image_url: str | None
     function: str | None
     qualifications: dict[str, bool]
@@ -24,7 +24,7 @@ class Person(BaseModel):
         return cls(
             first_name=data["first_name"],
             last_name=data["last_name"],
-            personnel_id=data["personnel_id"],
+            personnel_nr=data["personnel_nr"],
             image_url=data["image_url"],
             function=data["function"],
             qualifications=qualifications_dict,

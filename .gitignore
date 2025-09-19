@@ -26,6 +26,7 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
@@ -178,5 +179,11 @@ cython_debug/
 example_datasets/nameplates.json
 img.jpg
 *.pdf
-/pictures/
 /example_datasets/
+
+# Ignore every .png
+*.png
+
+# Whitelist the pictures/ directory and PNG files inside it
+!/pictures/
+!/pictures/*.png

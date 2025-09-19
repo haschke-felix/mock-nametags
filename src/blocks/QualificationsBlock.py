@@ -42,7 +42,7 @@ class QualificationsBlock(Block):
 
     def draw(self):
         self.__draw_qualifications()
-        self.__draw_qr() if self.context.person.personnel_id else None
+        self.__draw_qr() if self.context.person.personnel_nr else None
 
     def __draw_qualifications(self):
         for key, (pos, color, icon_file) in self.options.items():
@@ -99,7 +99,7 @@ class QualificationsBlock(Block):
             img_stream.seek(0)
             return ImageReader(img_stream)
 
-        qr = generate_qr_code(self.qr_base_url + self.context.person.personnel_id)
+        qr = generate_qr_code(self.qr_base_url + self.context.person.personnel_nr)
         mid = (self.dimensions.x + self.side_length, self.dimensions.y + self.side_length)
         CanvasHelper.draw_rotated_image(self.context.c,
                                         qr,

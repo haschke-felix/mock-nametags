@@ -84,7 +84,7 @@ class ImageBlock(Block):
         return ImageReader(self.placeholder_path)
 
     def __get_image_from_url(self):
-        assert self.context.person.personnel_id is not None, "Function can only be called if person has an personnel id!"
+        assert self.context.person.personnel_nr is not None, "Function can only be called if person has an personnel id!"
 
         response = requests.get(self.img_url)
         response.raise_for_status()

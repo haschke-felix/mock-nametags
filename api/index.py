@@ -1,10 +1,9 @@
+import os
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 import uuid
-import json
-from src.FormatClasses import Person
 from typing import Literal
 
 from mangum import Mangum  # adapter for serverless
@@ -42,25 +41,15 @@ async def generate_pdf(
         paper_size: Literal["A4", "Label"] = Query("Label")
 ):
     filename = f"{uuid.uuid4()}.pdf"
-    pdf_path = create_pdf(data, filename, paper_size)
-    return FileResponse(pdf_path, media_type="application/pdf", filename=filename)
-
-
-# if __name__ == '__main__':
-#     with open("example_datasets/nameplates.json", "r") as f:
-#         test_data = json.load(f)
-
-#     persons = [Person.from_json(p) for p in test_data]
-#     request = PdfRequest(title="Namensschilder", persons=persons)
-
-#     create_pdf(request, "Label", "example_datasets/nameplate_examples.pdf")
-
+    pdf_path = create_pdf(data, paper_size, filename)
+    response = FileResponse(pdf_path, media_type="application/pdf", filename=filename)
+    return response
 
 @app.post("/api/generate-preview/")
 async def generate_preview(data: JpgRequest):
     filename = f"{uuid.uuid4()}"
     jpg_path = create_preview(data, filename)
-    return FileResponse(jpg_path, media_type="image/png", filename=f"{filename}.png")
-
+    response = FileResponse(jpg_path, media_type="image/png", filename=f"{filename}.png")
+    return response
 
 handler = Mangum(app)

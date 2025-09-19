@@ -23,7 +23,7 @@ class MainBlock(Block):
         self.__set_highest_role_idx()
         self.__write_name()
         self.__draw_leading_qualification_indicator()
-        self.__write_personnel_id() if self.context.person.personnel_id else None
+        self.__write_personnel_nr() if self.context.person.personnel_nr else None
 
     def __write_name(self):
         self.context.c.setFillColor(colors.black)
@@ -50,15 +50,15 @@ class MainBlock(Block):
         else:
             self.__draw_trainee_label()
 
-    def __write_personnel_id(self):
+    def __write_personnel_nr(self):
         txt_right_pos = self.dimensions.x + self.dimensions.width - self.padding
         txt_bottom_pos = self.dimensions.y + self.bar_max_height + 2 * self.padding
 
-        str_width = stringWidth(self.context.person.personnel_id, self.font, FontSize.personnel_id)
-        self.context.c.setFont(self.font, FontSize.personnel_id)
+        str_width = stringWidth(self.context.person.personnel_nr, self.font, FontSize.personnel_nr)
+        self.context.c.setFont(self.font, FontSize.personnel_nr)
         self.context.c.drawString(txt_right_pos - str_width,
                                   txt_bottom_pos,
-                                  self.context.person.personnel_id)
+                                  self.context.person.personnel_nr)
 
     def __set_highest_role_idx(self):
         roles_with_person_qualifications = [i for i, role in enumerate(self.roles_map.values()) if
